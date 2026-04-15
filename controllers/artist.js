@@ -1,4 +1,6 @@
 const Artist = require("../models/artist");
+const Album = require("../models/albums");
+const Song = require("../models/songs");
 const bcrypt = require("bcrypt");
 const path = require("path");
 const jwt = require("../helpers/jwt");
@@ -126,20 +128,35 @@ const update = async (req, res) => {
 //ELIMINAR UN ARTISTA
 const remove = async (req, res) => {
   try {
-    //SACAR EL ID DEL ARTISTA
     const id = req.params.id;
-    //CONSULTA PARA BUSCAR Y EIMINAR EL ARTISTA
+
+    // 1. Obtener álbumes del artista
+    const albums = await Album.find({ artist: id }).select("_id");
+
+    const albumIds = albums.map((album) => album._id);
+
+    // 2. Eliminar canciones de esos álbumes
+    const songDelete = await Song.deleteMany({
+      album: { $in: albumIds },
+    });
+
+    // 3. Eliminar álbumes
+    const albumDelete = await Album.deleteMany({ artist: id });
+
+    // 4. Eliminar artista
     const artistDelete = await Artist.findByIdAndDelete(id);
-    //DEVOLVER RESULTADO
+
     return res.status(200).send({
       status: "Success",
-      msj: "Artista Borrado.",
+      msj: "Artista, álbumes y canciones eliminados correctamente.",
       artistDelete,
+      albumDelete,
+      songDelete,
     });
   } catch (error) {
     return res.status(500).send({
       status: "Error",
-      msj: "Algo paso al eliminar al artista.",
+      msj: "Algo pasó al eliminar.",
       error,
     });
   }
